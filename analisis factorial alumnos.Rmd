@@ -1,0 +1,230 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+# EFA
+# CARGAMOS LIBRERIAS
+library(base)
+library(lavaan)
+library(psych)
+library (GPArotation)
+library (Matrix)
+library(nFactors)
+………………………………………………
+```
+```{r}
+# cargamos el vector r con las correlaciones
+r <- c(1.000, .439, 1.000, .410, .351, 1.000, .288,
+.354, .164, 1.000, .329, .320, .190, .595, 1.000,
+.248, .329, .181, .470, .464, 1.000)
+
+```
+
+```{r}
+#creamos la matriz R con el vector r
+
+R<-lav_matrix_lower2full(r)
+
+
+# asignamos los nombres de las asignaturas
+
+colnames(R)<-rownames(R)<-c("Lit", "Ing", "His",
+"Ari", "Alg", "Geo")
+
+```
+
+```{r}
+# descomposicion en Autovalores y Autovectores de la matriz R
+
+auto<-svd(R)
+
+auto$d
+
+
+auto$v
+```
+
+```{r}
+# realizamos el test de Barlett 
+
+cortest.bartlett( R, n= 220)
+# vemos que el p value es cercano a 0 por lo que hay evidencia para rechazar Ho , por lo tanto hay correlacion entre variables
+```
+```{r}
+#Armamos la matriz diagonal de autovalores (av) y luego
+#multiplicamos la matriz de autovectores con la matriz
+#diagonal que tiene la raíz cuadrada de los
+#autovalores, para construir la matriz LAMBDA
+
+av<-Diagonal(6,auto$d) 
+av
+
+LAMBDA=auto$u%*%sqrt(av)
+LAMBDA
+
+```
+
+```{r}
+#Estimación EFA componentes principales: estimamos EFA
+#a partir de componentes principales, calculando las
+#soluciones factoriales no rotadas.
+
+fit.pca<-principal (R,nfactors=2, rotate="none", nobs=220)
+print(fit.pca)
+```
+
+```{r}
+#ploteamos los PCa
+
+plot(fit.pca, labels = row.names(R), cex=0.7, ylim=c(-0.8,0.8))
+```
+```{r}
+# Determinación EFA ejes principales: si estimamos EFA a
+#partir de ejes principales, tenemos que agregar
+#fm="pa"
+
+fit.pa<-fa(R,nfactors=2,fm="pa",rotate="none",n.obs=220)
+fit.pa
+
+plot(fit.pa, labels = row.names(R), cex= 0.7, ylim=c(-0.8,0.8))
+```
+```{r}
+#Determinación del número de factores: para determinar
+#el número de factores podemos hacer el gráfico de
+#sedimentación (como en componentes principales), y
+#también el Test de Barlett (recomienda retener 2
+#factores).
+
+#realizamos el test de Barlett
+
+nBartlett(R, N=220, alpha=0.01, cor=TRUE, details=TRUE)
+```
+
+```{r}
+# Rotación ortogonal de los ejes: rotación VARIMAX
+#usando ejes principales.
+
+fit.pa<-fa(R, nfactors=2, fm="pa", rotate="varimax",
+n.obs=220)
+
+fit.pa
+```
+
+```{r}
+#Ubicamos la matriz de giro, la cual aplicada a los
+#coeficientes de la solución no rotada, da como
+#resultado los coeficientes de la solución rotada:
+
+fit.pa$rot.mat
+
+```
+
+```{r}
+#Podemos ilustrar la rotación anterior, multiplicando
+#la matriz de coeficientes no rotados ( L de 6x2), por
+#la matriz de giro (T de 2x2). Obtenemos LR=L*T, que
+#tiene los coeficientes de la solución rotada:
+
+L<-matrix(c(0.59, 0.59, 0.43, 0.71, 0.70, 0.58, 0.38,
+0.24, 0.41, -0.33, -0.28,-0.18),6,2)
+
+T <- matrix(c(0.7861450,0.6180421,0.6180421,0.7861450),2,2)
+
+
+# multiplicamos las matrices
+LR<- L%*%T
+
+#print LR
+
+LR
+```
+
+```{r}
+#Gráfico en ejes rotados: ahora para ejes principales,
+#también con rotación Varimax.
+
+fit.pa<-fa(R, nfactors=2, fm="pa", rotate="varimax",
+n.obs=220)
+print(fit.pa)
+
+
+# ploteamos
+library(ggplot2)
+
+datos.grafico<-data.frame(row.names=c("Lit", "Eng",
+"His", "Ari", "Alg", "Geo"), "PA1" =c(0.59, 0.59, 0.43,
+0.71, 0.70, 0.58),"PA2"=c(0.38, 0.24, 0.41, -0.33, -0.28,
+-0.18))
+
+datos.grafico
+
+ggplot(datos.grafico)+
+geom_point(aes(x=PA1, y=PA2,colour="darkred"))+
+geom_text_repel(aes(x=PA1,
+y=PA2),label=rownames(datos.grafico))+
+geom_vline(xintercept = 0,colour="darkgray")+
+geom_hline(yintercept = 0,colour="darkgray")+
+labs (x="Dimension 1 (37%)", y="Dimension 2 (10%)")+
+theme(legend.position="none")+
+expand_limits(x=c(0,1), y=c(-0.5, 0.5))+
+geom_abline(intercept = 0, slope =
+tan(0.66624975),linetype="dashed",colour="darkred")+
+geom_abline(intercept = 0, slope =
+tan(0.66624975+pi/2),linetype="dashed",colour="darkred")+
+theme(aspect.ratio=1)
+
+
+plot(fit.pa,labels=row.names(R),cex=.7, ylim=c(-
+.8,.8))
+
+```
+
+
+```{r}
+#Medidas de ajuste o de adecuación muestral:
+
+cortest.bartlett(R,n=220)
+
+```
+```{r}
+#Calculo de la matriz reproducida para PAF con varimax
+
+LAMBDA<- matrix(c(0.23, 0.32, 0.08, 0.76, 0.72, 0.57,
+0.66, 0.55, 0.59, 0.18, 0.22, 0.22), 6,2)
+
+LAMBDA
+
+Rrep<-LAMBDA%*%t(LAMBDA)
+Rrep
+
+Rres<-R-Rrep
+Rres
+```
+
+```{r}
+#Calculamos el RMSR (Root Mean Square of the
+#Residuals): Hay que tener cuidado porque ‘psych’ solo
+#tiene en cuenta los residuos fuera de la diagonal.
+
+fit.pa$residual
+
+residuos<- fit.pa$residual [row (fit.pa$residual) != col
+(fit.pa$residual)
+
+residuos
+
+RMSR <- sqrt(mean(residuos^2))
+```
+
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
